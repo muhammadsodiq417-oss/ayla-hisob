@@ -1,0 +1,61 @@
+rules_version = '2';
+// Ayla hisob-kitob.
+// Admin (direktor): hamma narsani ko'radi va o'zgartiradi, xodimlarni tasdiqlaydi.
+// Xodim: faqat modellar katalogi (rasm, nom, xom ashyo miqdori), xom ashyo nomlari, ishchilar ro'yxati
+// va ishlab chiqarishni ko'radi; ishlab chiqarish va bajarilgan ishni (narxsiz) kiritadi.
+// Pul bilan bog'liq hech narsa (narx, tannarx, sotuv, qarz, maosh, xarajat) xodimga ochilmaydi.
+// Birinchi ro'yxatdan o'tgan odam egasi (admin) bo'ladi.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function mpath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function member() { return signed() && exists(mpath()); }
+    function admin() { return member() && get(mpath()).data.role == 'admin'; }
+    function ownerUid() { return get(/databases/$(database)/documents/config/owner).data.uid; }
+    function biz(col) { return col in ['mat','mv','mdl','cat','prd','wkr','job','pay','cst','sale','cpay','exp']; }
+    function mine() { return request.resource.data.by == request.auth.uid; }
+    function wasMine() { return resource.data.by == request.auth.uid; }
+
+    match /config/owner {
+      allow read: if signed();
+      allow create: if signed()
+        && !exists(/databases/$(database)/documents/config/owner)
+        && request.resource.data.uid == request.auth.uid;
+    }
+    match /members/{uid} {
+      allow read: if member() || (signed() && request.auth.uid == uid);
+      allow create: if admin()
+        || (signed() && uid == request.auth.uid
+            && request.resource.data.role == 'admin'
+            && getAfter(/databases/$(database)/documents/config/owner).data.uid == request.auth.uid);
+      allow update: if admin() && (uid != ownerUid() || request.resource.data.role == 'admin');
+      allow delete: if admin() && uid != ownerUid();
+    }
+    match /requests/{uid} {
+      allow read: if admin() || (signed() && request.auth.uid == uid);
+      allow create, update: if signed() && request.auth.uid == uid;
+      allow delete: if admin() || (signed() && request.auth.uid == uid);
+    }
+
+    // Admin: barcha ish to'plamlari
+    match /{col}/{id} {
+      allow read, write: if biz(col) && admin();
+    }
+    // Xodim ko'radigan, pulsiz to'plamlar
+    match /mat/{id} { allow read: if member(); }
+    match /wkr/{id} { allow read: if member(); }
+    match /cat/{id} { allow read: if member(); }
+    match /prd/{id} {
+      allow read: if member();
+      allow create: if member() && mine();
+      allow delete: if member() && wasMine();
+    }
+    // Bajarilgan ish: xodim narxsiz kiritadi, faqat o'zi kiritganini ko'radi; narxni direktor ilovasi qo'yadi
+    match /job/{id} {
+      allow read: if member() && wasMine();
+      allow create: if member() && mine()
+        && !('rate' in request.resource.data) && !('sum' in request.resource.data);
+      allow delete: if member() && wasMine();
+    }
+  }
+}
