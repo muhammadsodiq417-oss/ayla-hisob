@@ -4,6 +4,7 @@ Ayla poyabzal ishlab chiqarish uchun hisob ilovasi. iPhone va Android'da brauzer
 
 ## Bo'limlar
 
+- **Kunlik zakaz**: kun bo'yicha zakazlar rasm bilan. Zakazni faqat admin qo'shadi (mavjud yoki yangi model, soni, razmer, rang, muddat); ishchilar ko'radi va holatini belgilaydi (yangi / jarayonda / tayyor).
 - **Asosiy**: sof foyda, sotuv, tannarx, xarajatlar, qarzlar, oxirgi 6 oy.
 - **Ombor**: xom ashyo kirimi va chiqimi, qoldiq, o'rtacha narx, kam qolganlar.
 - **Modellar**: 1 juftga ketadigan xom ashyo va ish haqi, tannarx va foyda; "Ishlab chiqarildi" xom ashyoni ombordan ayiradi.
@@ -25,11 +26,11 @@ Ayla poyabzal ishlab chiqarish uchun hisob ilovasi. iPhone va Android'da brauzer
 
 - Birinchi ro'yxatdan o'tgan odam **egasi (admin)** bo'ladi.
 - Yangi xodim "Ro'yxatdan o'tish"ni bosib login va parol tanlaydi; admin **Sozlamalar** bo'limida tasdiqlaydi.
-- Admin hamma narsani o'chira oladi; xodim kiritadi va faqat o'zi kiritgan yozuvni o'chira oladi.
+- Admin (direktor) hamma hisob-kitobni ko'radi. Xodim faqat Zakaz, Modellar va o'z ishlarini ko'radi; pul raqamlari unga ko'rinmaydi.
 
 ## Ma'lumotlar tuzilishi (Firestore to'plamlari)
 
-`mat` xom ashyo · `mv` ombor harakati · `mdl` model · `prd` ishlab chiqarish · `wkr` ishchi · `job` bajarilgan ish · `pay` ishchiga to'lov · `cst` mijoz · `sale` sotuv · `cpay` mijoz to'lovi · `exp` xarajat · `members` foydalanuvchilar · `requests` kutilayotgan so'rovlar · `config/owner` egasi.
+`ord` kunlik zakaz · `mat` xom ashyo · `mv` ombor harakati · `mdl` model · `prd` ishlab chiqarish · `wkr` ishchi · `job` bajarilgan ish · `pay` ishchiga to'lov · `cst` mijoz · `sale` sotuv · `cpay` mijoz to'lovi · `exp` xarajat · `members` foydalanuvchilar · `requests` kutilayotgan so'rovlar · `config/owner` egasi.
 
 ## Keyinchalik Claude bilan yangi imkoniyat qo'shish
 

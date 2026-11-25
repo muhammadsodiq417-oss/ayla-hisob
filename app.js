@@ -7,8 +7,9 @@
 {
 'use strict';
 /* ================= constants ================= */
-const COLS=['mat','mv','mdl','cat','prd','wkr','job','pay','cst','sale','cpay','exp'];
-const STAFF_COLS=['mat','cat','prd','wkr','members','job'];
+const COLS=['mat','mv','mdl','cat','ord','prd','wkr','job','pay','cst','sale','cpay','exp'];
+const STAFF_COLS=['mat','cat','ord','prd','wkr','members','job'];
+const ORD_DAYS=45;
 const LS='ayla-hisob-v1';
 const FB_VER='10.14.1';
 const LOGIN_DOMAIN='@ayla-hisob.uz';
@@ -20,7 +21,23 @@ const CTYPES=['Optom','Chakana',"Do'kon",'Marketpleys','Boshqa'];
 const REGIONS=['Toshkent sh.','Toshkent vil.','Andijon','Buxoro',"Farg'ona",'Jizzax','Xorazm','Namangan','Navoiy','Qashqadaryo',"Qoraqalpog'iston",'Samarqand','Sirdaryo','Surxondaryo','Boshqa davlat'];
 const CF=[['all','Hammasi'],['debt','Qarzdorlar'],['Optom','Optom'],['Chakana','Chakana'],["Do'kon","Do'kon"]];
 const SORTS=[['debt','Qarzi ko‘p'],['name','Nomi'],['last','Oxirgi xarid'],['buy','Ko‘p xarid']];
-const VIEWS=['asosiy','ombor','modellar','ishchilar','mijozlar'];
+const VIEWS=['asosiy','zakaz','modellar','ombor','ishchilar','mijozlar'];
+const STAFF_VIEWS=['zakaz','katalog','ishlarim'];
+const WEEK=['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
+const MONL=['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'];
+const STS={yangi:'Yangi',jarayon:'Jarayonda',tayyor:'Tayyor'};
+const TI={
+ asosiy:'<path d="M3.5 11 12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
+ zakaz:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4M8.5 10h7M8.5 14h7M8.5 18h4"/>',
+ ombor:'<path d="M3 7.5 12 3.5l9 4v9l-9 4-9-4z"/><path d="M3 7.5l9 4 9-4M12 11.5v9"/>',
+ modellar:'<path d="M3 9.5V6h5l2.8 4.6 6.1 1.5c2 .5 3.6 2.1 3.6 4.2V17H3z"/><path d="M3 17v2.5h18.5V17M7.5 11.5 9 10"/>',
+ katalog:'<path d="M3 9.5V6h5l2.8 4.6 6.1 1.5c2 .5 3.6 2.1 3.6 4.2V17H3z"/><path d="M3 17v2.5h18.5V17M7.5 11.5 9 10"/>',
+ ishchilar:'<circle cx="9" cy="8" r="3.3"/><path d="M2.8 20c0-3.5 2.8-6 6.2-6s6.2 2.5 6.2 6"/><path d="M16 4.8a3.2 3.2 0 0 1 0 6.3M18 14.3c2 .8 3.2 2.8 3.2 5.7"/>',
+ ishlarim:'<path d="M4 6h11M4 12h11M4 18h7"/><path d="m15 17 2 2 4-4"/>',
+ mijozlar:'<path d="M5 3h14v18l-2.4-1.6L14.3 21 12 19.4 9.7 21l-2.3-1.6L5 21z"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>'};
+const TL={asosiy:'Asosiy',zakaz:'Zakaz',ombor:'Ombor',modellar:'Modellar',katalog:'Modellar',ishchilar:'Ishchilar',ishlarim:'Ishlarim',mijozlar:'Mijozlar'};
+const SHOE_ART='<svg class="shoe" viewBox="0 0 140 66" aria-hidden="true"><path class="s-up" d="M8 52C6 38 8 25 12 15l22-4 4-6 10 2-2 9c10 8 24 14 44 17l22 4c14 3 22 8 22 15z"/><path class="s-heel" d="M8 52C6 40 8 29 11 21l9 2c-2 9-2 19 0 29z"/><path class="s-col" d="M12 15l22-4 2 5-22 4z"/><path class="s-toe" d="M108 37c15 3 24 8 26 15h-30c1-6 2-11 4-15z"/><path class="s-sole" d="M4 52h130c3 0 5 2 5 5 0 4-3 7-9 7H12c-5 0-8-3-8-7z"/><path class="s-st" d="M11 48.5c40 .8 82 .8 121 .4"/><path class="s-lace" d="M44 17l9 5M49 22l9 5M54 27l9 5"/></svg>';
+const walker=(t)=>`<div class="walker" role="img" aria-label="${esc(t||'Yuklanmoqda')}"><div class="ground"></div><div class="prints"><i></i><i></i><i></i><i></i></div>${SHOE_ART}</div>`;
 const OPS0=['Bichish','Tikish','Zakatovka','Taglik yopish','Pardoz va qadoqlash'];
 const I={plus:'<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',minus:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',x:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>'};
 
@@ -52,7 +69,8 @@ const IMGRE=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 const imgOf=id=>{const c=D.cat.find(x=>x.id===id);return c&&typeof c.img==='string'&&IMGRE.test(c.img)?c.img:''};
 const SHOE='<svg class="i" viewBox="0 0 24 24"><path d="M3 9.5V6h5l2.8 4.6 6.1 1.5c2 .5 3.6 2.1 3.6 4.2V17H3z"/><path d="M3 17v2.5h18.5V17M7.5 11.5 9 10"/></svg>';
 const noImg='<span class="noimg">'+SHOE+"<small>Rasm yo'q</small></span>";
-const imgTag=(id,alt)=>{const d=imgOf(id);return d?`<img src="${esc(d)}" alt="${esc(alt||'')}" loading="lazy">`:noImg};
+const noImgArt='<span class="noimg art" aria-label="Rasm yo‘q">'+SHOE_ART+'</span>';
+const imgTag=(id,alt)=>{const d=imgOf(id);return d?`<img src="${esc(d)}" alt="${esc(alt||'')}" loading="lazy">`:noImgArt};
 const catDoc=(m,img)=>({name:m.name||'',code:m.code||'',bom:(m.bom||[]).map(b=>({mat:b.mat,qty:num(b.qty)})),ops:opNames(m),img:img||'',ts:Date.now()});
 const who=id=>{if(!id)return '';if(S.mode==='firebase')return D.members.find(m=>m.id===id)?.name||'';return names[id]||''};
 const sortD=a=>a.slice().sort((x,y)=>String(y.date||'').localeCompare(String(x.date||''))||(y.ts||0)-(x.ts||0));
@@ -105,6 +123,7 @@ async function delRec(c,id){
 }
 const stamp=o=>Object.assign(o,{ts:Date.now(),by:me||null});
 function errText(e){
+  if(e&&e.msg)return e.msg;
   const c=e&&e.code;
   if(c==='invalid_argument'&&S.mode==='cloud'){S.ro=true;sched();return "Saqlanmadi: sizda kiritish huquqi yo'q. Egasidan Editor huquqini so'rang."}
   if(c==='permission-denied')return S.admin?"Ruxsat yo'q. Akkauntingiz tasdiqlanganini tekshiring.":"Buni faqat admin qila oladi.";
@@ -119,7 +138,7 @@ function errText(e){
 function claudeSubscribe(){
   const got=new Set(),fresh=new Set();
   const tm=setTimeout(()=>{if(fresh.size<COLS.length){S.stale=true;S.loaded=true;sched()}},10000);
-  COLS.forEach(c=>{try{cdb.collection(c).onSnapshot(s=>{
+  COLS.forEach(c=>{try{(c==='ord'?cdb.collection('ord').where('date','>=',td(ORD_DAYS)):cdb.collection(c)).onSnapshot(s=>{
       D[c]=s.docs.map(d=>Object.assign({},d.data(),{id:d.id}));got.add(c);if(!s.metadata.fromCache)fresh.add(c);
       if(fresh.size===COLS.length){clearTimeout(tm);S.stale=false}
       if(got.size===COLS.length)S.loaded=true;sched();
@@ -162,7 +181,7 @@ function fbAuthChanged(u){
 function fbSubscribe(){
   const {F:Fs,fs}=FBX,adm=S.admin,cols=adm?COLS.concat(['members']):STAFF_COLS,got=new Set();S.subAdmin=adm;
   const tm=setTimeout(()=>{if(!S.loaded){S.loaded=true;S.stale=true;sched()}},10000);
-  cols.forEach(c=>dataUnsubs.push(Fs.onSnapshot(!adm&&c==='job'?Fs.query(Fs.collection(fs,'job'),Fs.where('by','==',me)):Fs.collection(fs,c),s=>{
+  cols.forEach(c=>dataUnsubs.push(Fs.onSnapshot(!adm&&c==='job'?Fs.query(Fs.collection(fs,'job'),Fs.where('by','==',me)):c==='ord'?Fs.query(Fs.collection(fs,'ord'),Fs.where('date','>=',td(ORD_DAYS))):Fs.collection(fs,c),s=>{
     D[c]=s.docs.map(d=>Object.assign({},d.data(),{id:d.id}));got.add(c);
     if(got.size===cols.length&&!S.loaded){S.loaded=true;S.stale=false;clearTimeout(tm)}sched();
   },e=>{got.add(c);if(got.size===cols.length)S.loaded=true;
@@ -243,6 +262,7 @@ const kvH=rows=>`<dl class="kv">${rows.map(([l,v,c])=>`<dt class="${c==='tot'?'t
 const stats=a=>`<div class="stats">${a.map(([l,v,c])=>`<div><span>${esc(l)}</span><b class="${c||''}">${esc(v)}</b></div>`).join('')}</div>`;
 const btn=(act,label,o={})=>`<button class="btn ${o.pri?'pri':''} ${o.sm?'sm':''} w" data-act="${act}"${o.id?` data-id="${esc(o.id)}"`:''}>${o.icon?I[o.icon]:''}${esc(label)}</button>`;
 const empty=t=>`<p class="empty">${esc(t)}</p>`;
+const emptyArt=t=>`<div class="emptyart">${SHOE_ART}<p>${esc(t)}</p></div>`;
 const opt=(list,v,ph='Tanlang…')=>(ph?`<option value="">${esc(ph)}</option>`:'')+list.map(([k,l])=>`<option value="${esc(k)}"${String(k)===String(v??'')?' selected':''}>${esc(l)}</option>`).join('');
 
 /* ================= views ================= */
@@ -261,24 +281,25 @@ function vHome(){
   <div class="chips">${per.map(([k,l])=>`<button data-act="per" data-p="${k}" aria-pressed="${S.per===k}">${l}</button>`).join('')}</div>
   <div class="label">
     <div class="lt"><span>Sof foyda</span><span>${esc(lab)}</span></div>
-    <div class="big ${P.pr<0?'red':''}">${fm(P.pr)}<small>so'm</small></div>
+    <div class="big ${P.pr<0?'red':''}"><span class="num" data-k="pr" data-v="${Math.round(P.pr)}">${fm(P.pr)}</span><small>so'm</small></div>
     <div class="strip" role="img" aria-label="Sotuv tarkibi"><i class="c1" style="width:${w(P.cogs)}"></i><i class="c2" style="width:${w(P.ex)}"></i><i class="c3" style="width:${w(P.pr)}"></i></div>
     <div class="legend">
-      <div><span>Sotuv · ${fq(P.pairs)} juft</span><b>${fm(P.sales)}</b></div>
-      <div><span><i class="c1"></i>Tannarx</span><b>${fm(P.cogs)}</b></div>
-      <div><span><i class="c2"></i>Xarajatlar</span><b>${fm(P.ex)}</b></div>
-      <div><span><i class="c3"></i>Foyda</span><b class="${P.pr<0?'red':''}">${fm(P.pr)}</b></div>
+      <div><span>Sotuv · ${fq(P.pairs)} juft</span><b class="num" data-k="sa" data-v="${Math.round(P.sales)}">${fm(P.sales)}</b></div>
+      <div><span><i class="c1"></i>Tannarx</span><b class="num" data-k="co" data-v="${Math.round(P.cogs)}">${fm(P.cogs)}</b></div>
+      <div><span><i class="c2"></i>Xarajatlar</span><b class="num" data-k="ex" data-v="${Math.round(P.ex)}">${fm(P.ex)}</b></div>
+      <div><span><i class="c3"></i>Foyda</span><b class="num ${P.pr<0?'red':''}" data-k="pr2" data-v="${Math.round(P.pr)}">${fm(P.pr)}</b></div>
     </div>
     <div class="lf">Foyda = sotuv − sotilgan juftlar tannarxi (xom ashyo + ish haqi) − xarajatlar</div>
   </div></div></section>
   <div class="wrap">
   ${none?`<div class="start"><h2>Boshlash uchun</h2><ol><li><b>Ombor</b>: xom ashyolarni qo'shing va kirimini yozing (teri, taglik, kley…).</li><li><b>Modellar</b>: har model uchun 1 juftga ketadigan xom ashyo va ish haqini yozing, tannarx o'zi hisoblanadi.</li><li><b>Ishchilar</b>: ishchilarni qo'shing, har kuni bajarilgan ishni kiriting.</li><li><b>Mijozlar</b>: mijozlar bazasi, sotuv va to'lovlar, qarz o'zi hisoblanadi.</li></ol>${S.admin?btn('smpload',"Namuna ma'lumot bilan ko'rish"):''}</div>`:''}
   <div class="figs">
-    <button class="fig" data-act="go" data-v="mijozlar"><span>Mijozlar qarzi</span><b class="${debt>0?'red':''}">${fm(debt)}</b><small>so'm</small></button>
-    <button class="fig" data-act="go" data-v="ishchilar"><span>Ishchilarga qarzimiz</span><b>${fm(owe)}</b><small>so'm</small></button>
-    <button class="fig" data-act="go" data-v="ombor"><span>Ombor qiymati</span><b>${fm(stv)}</b><small>so'm</small>${low.length?`<small class="red">${low.length} xil kam qoldi</small>`:''}</button>
+    <button class="fig" data-act="go" data-v="mijozlar"><span>Mijozlar qarzi</span><b class="num ${debt>0?'red':''}" data-k="de" data-v="${Math.round(debt)}">${fm(debt)}</b><small>so'm</small></button>
+    <button class="fig" data-act="go" data-v="ishchilar"><span>Ishchilarga qarzimiz</span><b class="num" data-k="ow" data-v="${Math.round(owe)}">${fm(owe)}</b><small>so'm</small></button>
+    <button class="fig" data-act="go" data-v="ombor"><span>Ombor qiymati</span><b class="num" data-k="st" data-v="${Math.round(stv)}">${fm(stv)}</b><small>so'm</small>${low.length?`<small class="red">${low.length} xil kam qoldi</small>`:''}</button>
     <button class="fig" data-act="go" data-v="modellar"><span>Tayyor mahsulot</span><b>${fq(left)} juft</b><small>${fq(P.made)} juft tayyorlandi</small></button>
   </div>
+  ${(()=>{const t=D.ord.filter(o=>o.date===td());return t.length?`<div class="sh"><h2>Bugungi zakaz</h2><button class="btn sm" data-act="go" data-v="zakaz">Hammasi</button></div><div class="ogrid mini">${t.slice(0,4).map(ocard).join('')}</div>`:''})()}
   <div class="sh"><h2>So'nggi 6 oy</h2></div>
   <div class="mrow hd"><span>Oy</span><span>Sotuv va foyda</span><span class="mv">Sotuv</span><span class="mv">Foyda</span></div>
   ${months.map(m=>`<div class="mrow"><span>${m.l}</span><div class="mtrack"><i class="ms" style="width:${(m.p.sales/mx*100).toFixed(1)}%"></i><i class="mp" style="width:${(Math.max(0,m.p.pr)/mx*100).toFixed(1)}%"></i></div><span class="mv">${short(m.p.sales)}</span><span class="mv ${m.p.pr<0?'red':''}">${short(m.p.pr)}</span></div>`).join('')}
@@ -331,12 +352,12 @@ function vClients(){
   ${body}</div>`;
 }
 function vAuth(){
-  if(S.auth==='check'||S.auth===null)return `<div class="auth"><img class="lg-l" src="logo.png" alt="Ayla"><img class="lg-d" src="logo-dark.png" alt="Ayla"><p class="sub">Yuklanmoqda…</p></div>`;
+  if(S.auth==='check'||S.auth===null)return `<div class="auth"><img class="lg-l" src="logo.png" alt="Ayla"><img class="lg-d" src="logo-dark.png" alt="Ayla">${walker()}<p class="sub">Yuklanmoqda…</p></div>`;
   if(S.auth==='pending')return `<div class="auth"><img class="lg-l" src="logo.png" alt="Ayla"><img class="lg-d" src="logo-dark.png" alt="Ayla"><h1>Tasdiq kutilmoqda</h1>
     ${S.reqExists===false?`<p class="sub">So'rov topilmadi. Admin rad etgan bo'lishi mumkin.</p><button class="btn pri" data-act="req-send">So'rov yuborish</button>`:`<p class="sub">${esc(S.user?.displayName||'')} — so'rovingiz yuborildi. Admin tasdiqlashi bilan ilova o'zi ochiladi.</p>`}
     <button class="linkb" data-act="logout">Boshqa akkaunt bilan kirish</button></div>`;
   const reg=S.authMode==='reg';
-  return `<div class="auth"><img class="lg-l" src="logo.png" alt="Ayla"><img class="lg-d" src="logo-dark.png" alt="Ayla"><h1>${reg?"Ro'yxatdan o'tish":'Kirish'}</h1><p class="sub">${reg?"Admin tasdiqlagach ilovadan foydalana olasiz":'Ayla ishlab chiqarish hisobi'}</p>
+  return `<div class="auth"><img class="lg-l" src="logo.png" alt="Ayla"><img class="lg-d" src="logo-dark.png" alt="Ayla">${walker('Ayla')}<h1>${reg?"Ro'yxatdan o'tish":'Kirish'}</h1><p class="sub">${reg?"Admin tasdiqlagach ilovadan foydalana olasiz":'Ayla ishlab chiqarish hisobi'}</p>
   <form id="authf" novalidate>
    ${reg?`<label class="fl" for="a_name"><span>Ism familiya</span><input id="a_name" autocomplete="name"></label>`:''}
    <label class="fl" for="a_login"><span>Login</span><input id="a_login" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="masalan: dilnoza"></label>
@@ -346,14 +367,81 @@ function vAuth(){
   </form>
   <button class="linkb" data-act="authmode">${reg?'Akkauntim bor, kirish':"Yangi xodimman, ro'yxatdan o'tish"}</button></div>`;
 }
-function vStaff(){
-  const mine=sortD([...D.prd.filter(p=>p.by===me).map(p=>Object.assign({_c:'prd'},p)),...D.job.filter(j=>j.by===me).map(j=>Object.assign({_c:'job'},j))]).slice(0,40);
-  return `<div class="wrap"><h1>Salom, ${esc(S.myName||'')}</h1><p class="sub">${esc(fd(td()))} · ishlab chiqarish</p>
+function vStaffCat(){
+  return `<div class="wrap"><h1>Modellar</h1><p class="sub">Model ustiga bosib, ishlab chiqarish yoki bajarilgan ishni kiriting</p>
   <div class="acts">${btn('job-new','Bajarilgan ish',{pri:1,icon:'plus'})}${btn('prd-new','Ishlab chiqarildi',{icon:'plus'})}</div>
-  <div class="sh"><h2>Modellar</h2></div>
-  <div class="mgrid cgrid">${byName(D.cat).map(m=>`<button class="mcard" data-act="cat" data-id="${esc(m.id)}"><div class="mimg">${imgTag(m.id,m.name)}</div><div class="mh"><b>${esc(m.name)}</b><span>${esc(m.code||'')}</span></div></button>`).join('')||empty("Hali model qo'shilmagan")}</div>
-  <div class="sh"><h2>Mening kiritganlarim</h2></div>
-  <div class="list">${mine.map(x=>x._c==='prd'?txRow('prd',x,'Ishlab chiqarildi · '+nm('mdl',x.mdl),[x.note],fq(x.pairs)+' juft'):txRow('job',x,nm('wkr',x.wkr)+' · '+x.op,[nm('mdl',x.mdl)],fq(x.pairs)+' juft')).join('')||empty('Hali hech narsa kiritmadingiz')}</div></div>`;
+  <div class="mgrid cgrid">${byName(D.cat).map(m=>`<button class="mcard" data-act="cat" data-id="${esc(m.id)}"><div class="mimg">${imgTag(m.id,m.name)}</div><div class="mh"><b>${esc(m.name)}</b><span>${esc(m.code||'')}</span></div></button>`).join('')||emptyArt("Hali model qo'shilmagan")}</div></div>`;
+}
+function vStaffMine(){
+  const mine=sortD([...D.prd.filter(p=>p.by===me).map(p=>Object.assign({_c:'prd'},p)),...D.job.filter(j=>j.by===me).map(j=>Object.assign({_c:'job'},j))]).slice(0,60);
+  const today=mine.filter(x=>x.date===td()).reduce((a,x)=>a+num(x.pairs),0);
+  return `<div class="wrap"><h1>Mening ishlarim</h1><p class="sub">Bugun kiritildi: ${fq(today)} juft</p>
+  <div class="acts">${btn('job-new','Bajarilgan ish',{pri:1,icon:'plus'})}${btn('prd-new','Ishlab chiqarildi',{icon:'plus'})}</div>
+  <div class="list">${mine.map(x=>x._c==='prd'?txRow('prd',x,'Ishlab chiqarildi · '+nm('mdl',x.mdl),[x.note],fq(x.pairs)+' juft'):txRow('job',x,nm('wkr',x.wkr)+' · '+x.op,[nm('mdl',x.mdl)],fq(x.pairs)+' juft')).join('')||emptyArt('Hali hech narsa kiritmadingiz')}</div></div>`;
+}
+/* ---------- kunlik zakaz ---------- */
+const oImg=o=>o&&typeof o.img==='string'&&IMGRE.test(o.img)?o.img:(o&&o.mdl?imgOf(o.mdl):'');
+const oName=o=>(o.mdl&&getM(o.mdl)?.name)||o.name||'Model';
+const oCode=o=>(o.mdl&&getM(o.mdl)?.code)||o.code||'';
+const dayLabel=d=>{const x=new Date(d+'T12:00:00'),t=td(),rel=d===t?'Bugun':d===td(1)?'Kecha':d===td(-1)?'Ertaga':WEEK[x.getDay()];return rel+', '+x.getDate()+' '+MONL[x.getMonth()]};
+const sortOrd=a=>a.slice().sort((x,y)=>({yangi:0,jarayon:1,tayyor:2}[x.status||'yangi']-({yangi:0,jarayon:1,tayyor:2}[y.status||'yangi']))||(y.ts||0)-(x.ts||0));
+function ocard(o){
+  const d=oImg(o),st=o.status||'yangi';
+  return `<button class="ocard" data-act="ord" data-id="${esc(o.id)}"><div class="mimg">${d?`<img src="${esc(d)}" alt="${esc(oName(o))}" loading="lazy">`:noImgArt}<span class="opairs">${fq(o.pairs)} juft</span></div>
+  <div class="obody"><div class="otop"><b>${esc(oName(o))}</b><span class="stchip st-${st}">${STS[st]||st}</span></div>
+  <small>${esc([oCode(o),o.sizes?'razmer: '+o.sizes:'',o.color].filter(Boolean).join(' · '))}</small>${o.due?`<small class="${o.due<td()&&st!=='tayyor'?'red':''}">Muddat: ${esc(fd(o.due))}</small>`:''}</div></button>`;
+}
+function vOrders(){
+  const d=S.zd||td(),list=sortOrd(D.ord.filter(o=>o.date===d)),tot=list.reduce((a,o)=>a+num(o.pairs),0);
+  const cnt=k=>list.filter(o=>(o.status||'yangi')===k).length;
+  const old=sortOrd(D.ord.filter(o=>o.date<d&&(o.status||'yangi')!=='tayyor'));
+  const tooOld=d<td(ORD_DAYS)&&S.mode!=='local';
+  return `<div class="wrap"><h1>Kunlik zakaz</h1>
+  <div class="dnav"><button class="ib" data-act="zd" data-d="-1" aria-label="Oldingi kun"><svg class="i" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg></button><label class="dpick"><span>${esc(dayLabel(d))}</span><input type="date" id="zdate" value="${esc(d)}" aria-label="Sanani tanlash"></label><button class="ib" data-act="zd" data-d="1" aria-label="Keyingi kun"><svg class="i" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>${d!==td()?`<button class="btn sm" data-act="zd" data-d="0">Bugun</button>`:''}</div>
+  <p class="sub">${list.length} ta zakaz · ${fq(tot)} juft${list.length?` · yangi ${cnt('yangi')}, jarayonda ${cnt('jarayon')}, tayyor ${cnt('tayyor')}`:''}</p>
+  ${S.admin?`<div class="acts">${btn('ord-new','Zakaz qo‘shish',{pri:1,icon:'plus'})}</div>`:''}
+  ${tooOld?`<div class="note">${ORD_DAYS} kundan eski zakazlar bu yerda ko'rsatilmaydi.</div>`:''}
+  <div class="ogrid">${list.map(ocard).join('')}</div>${list.length?'':emptyArt(S.admin?"Bu kunga zakaz yo'q. “Zakaz qo‘shish” ni bosing.":"Bu kunga zakaz hali yo'q")}
+  ${old.length?`<div class="sh"><h2>Oldingi kunlardan qolganlar</h2></div><div class="ogrid">${old.map(ocard).join('')}</div>`:''}</div>`;
+}
+function ordSheet(id){
+  const o=get('ord',id);if(!o)return closeSheet();const d=oImg(o),st=o.status||'yangi';
+  const kv=[['Sana',dayLabel(o.date)],['Soni',fq(o.pairs)+' juft']];if(oCode(o))kv.push(['Artikul',oCode(o)]);if(o.sizes)kv.push(['Razmerlar',o.sizes]);if(o.color)kv.push(['Rangi',o.color]);if(o.due)kv.push(['Topshirish muddati',fd(o.due)]);if(!o.mdl)kv.push(['Model','yangi model (ro‘yxatda yo‘q)']);if(o.stBy&&who(o.stBy))kv.push(['Holatni o‘zgartirdi',who(o.stBy)]);if(who(o.by))kv.push(['Qo‘shdi',who(o.by)]);
+  openSheet(oName(o),`<div class="mimg big">${d?`<img src="${esc(d)}" alt="${esc(oName(o))}">`:noImgArt}</div>
+  <div class="seg3" role="group" aria-label="Holati">${Object.entries(STS).map(([k,l])=>`<button class="st-${k}" data-act="ost" data-id="${esc(id)}" data-s="${k}" aria-pressed="${st===k}">${l}</button>`).join('')}</div>
+  ${kvH(kv)}${o.note?`<p>${esc(o.note)}</p>`:''}
+  <div class="acts">${o.mdl&&getM(o.mdl)?`<button class="btn pri w" data-act="prd-new" data-id="${esc(o.mdl)}" data-p="${esc(o.pairs)}">${I.plus}Ishlab chiqarildi</button><button class="btn w" data-act="job-new" data-m="${esc(o.mdl)}">${I.plus}Bajarilgan ish</button>`:''}${S.admin?`<button class="btn w" data-act="ord-edit" data-id="${esc(id)}">Tahrirlash</button>`:''}</div>
+  ${S.admin?`<div class="fbtn"><button class="btn del w" data-act="txdel" data-c="ord" data-id="${esc(id)}">Zakazni o'chirish</button></div>`:''}`,{detail:()=>ordSheet(id)});
+}
+async function setStatus(id,stv){
+  const o=get('ord',id);if(!o||(o.status||'yangi')===stv)return;
+  const r=Object.assign({},o,{status:stv,stBy:me||null,stTs:Date.now()});await put('ord',r,id);toast(STS[stv]+' deb belgilandi',{shoe:1});
+}
+function ordForm(id,back){
+  const o=id?get('ord',id):null;
+  const models=mdlO();const mval=o?(o.mdl||'__new'):(models.length?'':'__new');
+  form(o?'Zakazni tahrirlash':'Yangi zakaz',[
+    {id:'date',label:'Sana',type:'date',value:o?.date||S.zd||td()},
+    {id:'mdl',label:'Model',type:'sel',opts:models.concat([['__new','+ Yangi model (ro‘yxatda yo‘q)']]),value:mval,req:1},
+    {id:'nname',label:'Yangi model nomi',type:'text',value:o&&!o.mdl?o.name:'',ph:'Masalan: Bolalar krossovkasi'},
+    {id:'ncode',label:'Artikul',type:'text',value:o&&!o.mdl?o.code:'',ph:'B-301'},
+    {id:'img',label:'Rasm',type:'img',value:o&&IMGRE.test(o.img||'')?o.img:''},
+    {id:'pairs',label:'Soni (juft)',type:'num',value:o?.pairs??'',req:1,ph:'0'},
+    {id:'sizes',label:'Razmerlar',type:'text',value:o?.sizes,ph:'36–41 yoki 37×10, 38×20'},
+    {id:'color',label:'Rangi',type:'text',value:o?.color,ph:'Qora, jigarrang…'},
+    {id:'due',label:'Topshirish muddati',type:'date',value:o?.due||''},
+    {id:'note',label:'Izoh',type:'area',value:o?.note,ph:'Mijoz talabi, material, qadoq…'}
+  ],async v=>{
+    const isNew=v.mdl==='__new';if(isNew&&!v.nname){const e=new Error('n');e.msg='Yangi model nomini yozing';throw e}
+    const m=isNew?null:getM(v.mdl);
+    const doc=Object.assign({},o||stamp({status:'yangi'}),{date:v.date||td(),mdl:isNew?null:v.mdl,name:isNew?v.nname:(m?.name||''),code:isNew?v.ncode:(m?.code||''),img:v.img||'',pairs:v.pairs,sizes:v.sizes,color:v.color,due:v.due,note:v.note});
+    await put('ord',doc,id||undefined);S.zd=doc.date;
+  },{back,msg:'Zakaz saqlandi',live:(v,box,frm,st)=>{
+    const isNew=v.mdl==='__new';['nname','ncode'].forEach(k=>{const el=frm.elements[k].closest('.fl');el.hidden=!isNew});
+    const own=frm.elements.img.value,key=own?'own':(isNew?'none':'m:'+v.mdl);
+    if(st.pv!==key){st.pv=key;const d=own||(!isNew&&v.mdl?imgOf(v.mdl):'');$('#f_imgp').innerHTML=d?`<img src="${esc(d)}" alt="">`:noImg}
+    box.innerHTML=!isNew&&v.mdl&&!own?`<p class="mut" style="margin:0">Model rasmi ishlatiladi. Boshqa rasm tanlasangiz, faqat shu zakazga saqlanadi.</p>`:'';
+  }});
 }
 function catSheet(id){
   const m=getM(id);if(!m)return closeSheet();
@@ -381,20 +469,31 @@ async function shrink(file,max=900,q=.74){
     const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);
     let d=c.toDataURL('image/jpeg',q);if(d.length>240000)d=c.toDataURL('image/jpeg',.55);if(!IMGRE.test(d))throw new Error('img');return d}finally{URL.revokeObjectURL(url)}
 }
+const RM=matchMedia('(prefers-reduced-motion: reduce)');
+let enT=0;
+function enter(){const v=$('#view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');clearTimeout(enT);enT=setTimeout(()=>v.classList.remove('enter'),900)}
+const nums={};
+function countUps(){
+  document.querySelectorAll('#view .num[data-k]').forEach(el=>{const k=el.dataset.k,to=+el.dataset.v,from=k in nums?nums[k]:(RM.matches?to:0);nums[k]=to;if(from===to||RM.matches)return;
+    const t0=performance.now(),dur=750,step=t=>{const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);if(!el.isConnected)return;el.textContent=fm(from+(to-from)*e);if(p<1)requestAnimationFrame(step)};requestAnimationFrame(step)});
+}
 function render(){
   const ae=document.activeElement,fid=ae&&ae.id&&$('#view').contains(ae)?ae.id:null,sel=fid&&typeof ae.selectionStart==='number'?[ae.selectionStart,ae.selectionEnd]:null;
   const fbOut=S.mode==='firebase'&&S.auth!=='in';
   const staff=S.mode==='firebase'&&S.auth==='in'&&!S.admin;
   document.body.classList.toggle('ro',S.ro);document.body.classList.toggle('noapp',fbOut);document.body.classList.toggle('staff',staff);
   const mc=$('#mode');mc.textContent=!S.online?'Oflayn':S.mode==='cloud'?'Umumiy baza':S.mode==='firebase'?(S.myName||'Onlayn'):S.mode==='local'?'Shu qurilmada':'Yuklanmoqda';mc.classList.toggle('off',!S.online);
-  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.v===S.view?'page':'false'));
+  const tv=staff?STAFF_VIEWS:VIEWS;if(!tv.includes(S.view))S.view=tv[0]==='asosiy'?'asosiy':tv[0];
+  const tk=tv.join()+S.view,nav=$('#tabs');if(nav.dataset.k!==tk){nav.dataset.k=tk;nav.style.setProperty('--n',tv.length);nav.innerHTML=tv.map(k=>`<button data-act="go" data-v="${k}" aria-current="${k===S.view?'page':'false'}"><svg class="i" viewBox="0 0 24 24">${TI[k]}</svg>${TL[k]}</button>`).join('')}
   const v=$('#view');
   if(fbOut){v.innerHTML=vAuth();return}
-  if(S.mode==='loading'||((S.mode==='cloud'||S.mode==='firebase')&&!S.loaded)){v.innerHTML=`<div class="wrap"><p class="mut">Ma'lumotlar yuklanmoqda…</p></div>`;return}
+  if(S.mode==='loading'||((S.mode==='cloud'||S.mode==='firebase')&&!S.loaded)){if(!v.querySelector('.walker'))v.innerHTML=`<div class="wrap loadwrap">${walker()}<p class="mut">Ma'lumotlar yuklanmoqda…</p></div>`;S.wasLoading=1;return}
+  if(S.wasLoading){S.wasLoading=0;enter()}
   C=calc();
   const pend=S.mode==='firebase'&&S.admin&&D.requests.length;
   const note=(S.stale?`<div class="wrap" style="padding-bottom:0"><div class="note">Baza hali to'liq javob bermadi, ko'rsatilgan raqamlar eskirgan bo'lishi mumkin.</div></div>`:'')+(S.ro?`<div class="wrap" style="padding-bottom:0"><div class="note">Sizda faqat ko'rish huquqi bor.</div></div>`:'')+(pend?`<div class="wrap" style="padding-bottom:0"><div class="smp"><span>${D.requests.length} ta yangi xodim tasdiq kutmoqda</span><button class="btn sm" data-act="set">Ko'rish</button></div></div>`:'');
-  v.innerHTML=note+(staff?vStaff():({asosiy:vHome,ombor:vStore,modellar:vProd,ishchilar:vWork,mijozlar:vClients}[S.view]||vHome)());
+  v.innerHTML=note+((staff?{zakaz:vOrders,katalog:vStaffCat,ishlarim:vStaffMine}:{asosiy:vHome,zakaz:vOrders,ombor:vStore,modellar:vProd,ishchilar:vWork,mijozlar:vClients})[S.view]||vHome)();
+  countUps();
   if(fid){const n=document.getElementById(fid);if(n){n.focus();if(sel)try{n.setSelectionRange(sel[0],sel[1])}catch(e){}}}
   if(S.detail&&!$('#sheet').hidden)S.detail();
   if(S.mode==='cloud')refreshNames();
@@ -404,7 +503,7 @@ function render(){
 /* ================= sheets & forms ================= */
 function openSheet(title,html,o={}){$('#shT').textContent=title;$('#shB').innerHTML=html;$('#sheet').hidden=false;S.detail=o.detail||null;if(!o.detail)F=o.form||null}
 function closeSheet(){$('#sheet').hidden=true;S.detail=null;F=null;S.txBack=null}
-function toast(msg,act){const t=$('#toast');t.innerHTML='';const s=document.createElement('span');s.textContent=msg;t.appendChild(s);if(act){const b=document.createElement('button');b.textContent=act.label;b.onclick=()=>{t.hidden=true;act.fn()};t.appendChild(b)}t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,act?6000:2800)}
+function toast(msg,act){const t=$('#toast');t.innerHTML='';if(act&&act.shoe||/saqlandi|qo‘shildi|qo'shildi|Tasdiqlandi|yuklandi/i.test(msg)){t.insertAdjacentHTML('beforeend','<span class="tshoe">'+SHOE_ART+'</span>');if(act&&act.shoe)act=null}t.classList.remove('pop');void t.offsetWidth;t.classList.add('pop');const s=document.createElement('span');s.textContent=msg;t.appendChild(s);if(act){const b=document.createElement('button');b.textContent=act.label;b.onclick=()=>{t.hidden=true;act.fn()};t.appendChild(b)}t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,act?6000:2800)}
 function fh(f){
   const id='f_'+f.id,v=f.value??'';
   if(f.type==='html')return f.html;
@@ -474,11 +573,11 @@ function mdlForm(id,back){
     const c=C.cost(v);box.innerHTML=kvH([['Xom ashyo',sm(c.mat)],['Ish haqi',sm(c.lab)],['Boshqa',sm(c.ex)],['Tannarx, 1 juft',sm(c.tot),'tot'],['Foyda, 1 juft',sm(c.pr)+' · '+pct(c.mg),c.pr<0?'red':'grn']]);
   }},delOpt('mdl',id,m,used,'model')));
 }
-function prdForm(mdlId,back){
+function prdForm(mdlId,back,pairs0){
   if(!MD().length){toast(S.admin?"Avval model qo'shing":"Hali model yo'q");return S.admin?mdlForm():null}
   form('Ishlab chiqarildi',[
     {id:'mdl',label:'Model',type:'sel',opts:mdlO(),value:mdlId,req:1},
-    {id:'pairs',label:'Soni (juft)',type:'num',req:1,ph:'0'},
+    {id:'pairs',label:'Soni (juft)',type:'num',req:1,ph:'0',value:pairs0?num(pairs0):''},
     {id:'date',label:'Sana',type:'date',value:td()},
     {id:'note',label:'Izoh',type:'text',ph:'Partiya, rang, razmerlar…'}
   ],async v=>{const m=getM(v.mdl);await put('prd',stamp({mdl:v.mdl,pairs:v.pairs,date:v.date||td(),note:v.note,use:(m.bom||[]).map(b=>({mat:b.mat,qty:Math.round(num(b.qty)*v.pairs*1000)/1000}))}))},{back,msg:"Saqlandi, xom ashyo ombordan ayirildi",live:(v,box)=>{
@@ -723,13 +822,14 @@ function seedData(){
   [['s0','c1',[it('d1',30,290000)],36],['s1','c1',[it('d1',40,290000)],13],['s2','c2',[it('d2',25,340000),it('d1',10,290000)],7],['s3','c3',[it('d1',30,285000)],3],['s4','c2',[it('d1',25,290000)],28],['s5','c4',[it('d2',2,380000)],5]].forEach(([i,c,items,o])=>add('sale',i,{cst:'smp-'+c,items,sum:items.reduce((a,x)=>a+x.pairs*x.price,0),date:T(o),note:''}));
   [['k0','c1',8700000,31,'Naqd'],['k1','c1',8000000,13,'Naqd'],['k2','c1',3600000,5,"O'tkazma"],['k3','c2',6000000,7,'Naqd'],['k4','c3',4000000,2,'Karta'],['k5','c2',7250000,26,"O'tkazma"],['k6','c4',760000,5,'Karta']].forEach(([i,c,amount,o,note])=>add('cpay',i,{cst:'smp-'+c,amount,date:T(o),note}));
   [['e0','Ijara',6000000,55,'Sex ijarasi'],['e1','Elektr energiya',1100000,46,''],['e2','Ijara',6000000,24,'Sex ijarasi'],['e3','Elektr energiya',1250000,15,''],['e4','Transport',450000,7,'Samarqandga yetkazish']].forEach(([i,cat,amount,o,note])=>add('exp',i,{cat,amount,date:T(o),note}));
+  [['o1','d1',60,0,'jarayon','39–44','Qora',3],['o2','d2',40,0,'yangi','36–40','Jigarrang',5],['o3',null,30,0,'yangi','28–34','Oq',7,'Bolalar krossovkasi','B-301'],['o4','d1',50,1,'tayyor','40–45','Qora',0]].forEach(([i,k,pairs,o,status,sizes,color,due,name,code])=>add('ord',i,{date:T(o),mdl:k?'smp-'+k:null,name:k?md(k).name:name,code:k?md(k).code:code,img:'',pairs,sizes,color,due:due?T(-due):'',note:'',status}));
   return r;
 }
 window.__seed=seedData;
 async function loadSamples(){const r=seedData(),list=[];COLS.forEach(c=>r[c].forEach(x=>list.push([c,x,x.id])));try{await many(list);toast('Namuna yuklandi')}catch(e){toast(errText(e))}}
 
 /* ================= events ================= */
-function go(v){if(!VIEWS.includes(v))v='asosiy';S.view=v;try{if(location.hash.slice(1)!==v)history.replaceState(null,'','#'+v)}catch(e){}$('#view').scrollTop=0;render()}
+function go(v){const staff=S.mode==='firebase'&&!S.admin;const tv=staff?STAFF_VIEWS:VIEWS;if(!tv.includes(v))v=tv[0];S.view=v;enter();try{if(location.hash.slice(1)!==v)history.replaceState(null,'','#'+v)}catch(e){}$('#view').scrollTop=0;render()}
 async function confirm2(b){if(b.dataset.ok)return true;b.dataset.ok='1';b.dataset.t=b.textContent;b.textContent='Tasdiqlash uchun yana bosing';setTimeout(()=>{if(b.isConnected&&b.dataset.ok){delete b.dataset.ok;b.textContent=b.dataset.t}},5000);return false}
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
@@ -745,8 +845,13 @@ document.addEventListener('click',async e=>{
     case 'mat':matSheet(id);break;
     case 'mdl':mdlSheet(id);break;
     case 'cat':catSheet(id);break;
+    case 'ord':ordSheet(id);break;
+    case 'ord-new':ordForm();break;
+    case 'ord-edit':ordForm(id,back);break;
+    case 'ost':await setStatus(id,b.dataset.s);break;
+    case 'zd':{const dd=+b.dataset.d;if(dd===0)S.zd=td();else{const x=new Date((S.zd||td())+'T12:00:00');x.setDate(x.getDate()+dd);S.zd=ymd(x)}enter();render();break}
     case 'jobrate':jobRateForm(id,back);break;
-    case 'imgdel':{$('#f_img').value='';$('#f_imgp').innerHTML=noImg;break}
+    case 'imgdel':{$('#f_img').value='';$('#f_imgp').innerHTML=noImg;if(F&&F.st)F.st.pv=null;liveRun();break}
     case 'wkr':wkrSheet(id);break;
     case 'cst':cstSheet(id);break;
     case 'tx':txSheet(b.dataset.c,id,back);break;
@@ -756,7 +861,7 @@ document.addEventListener('click',async e=>{
     case 'chiqim':mvForm('out',id,back);break;
     case 'mdl-new':mdlForm();break;
     case 'mdl-edit':mdlForm(id,back);break;
-    case 'prd-new':prdForm(id,back);break;
+    case 'prd-new':prdForm(id,back,b.dataset.p);break;
     case 'wkr-new':wkrForm();break;
     case 'wkr-edit':wkrForm(id,back);break;
     case 'job-new':jobForm(id,back,b.dataset.m);break;
@@ -792,11 +897,12 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='cq'){S.q=t.value;const l=$('#clist');if(l)l.innerHTML=clientRows();return}if(t.closest&&t.closest('#frm')){t.dataset.d='1';liveRun()}});
 document.addEventListener('change',async e=>{const t=e.target;
-  if(t.id==='f_imgf'){const f=t.files&&t.files[0];t.value='';if(!f)return;try{const d=await shrink(f);$('#f_img').value=d;$('#f_imgp').innerHTML=`<img src="${esc(d)}" alt="">`}catch(err){toast("Rasmni o'qib bo'lmadi. Boshqa rasm tanlang.")}return}if(t.id==='csort'){S.csort=t.value;const l=$('#clist');if(l)l.innerHTML=clientRows();return}if(t.closest&&t.closest('#frm'))liveRun()});
+  if(t.id==='zdate'){if(t.value){S.zd=t.value;enter();render()}return}
+  if(t.id==='f_imgf'){const f=t.files&&t.files[0];t.value='';if(!f)return;try{const d=await shrink(f);$('#f_img').value=d;$('#f_imgp').innerHTML=`<img src="${esc(d)}" alt="">`;if(F&&F.st)F.st.pv='own';liveRun()}catch(err){toast("Rasmni o'qib bo'lmadi. Boshqa rasm tanlang.")}return}if(t.id==='csort'){S.csort=t.value;const l=$('#clist');if(l)l.innerHTML=clientRows();return}if(t.closest&&t.closest('#frm'))liveRun()});
 document.addEventListener('focusout',e=>{const t=e.target;if(t.type==='tel'&&t.value.trim()){t.value=fmtPhone(t.value);liveRun();return}if(t.classList&&t.classList.contains('money')&&t.value.trim()){const n=num(t.value);t.value=n?grp(n):''}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();if(e.key==='Enter'&&e.target.id==='nm_name'){e.preventDefault();newMatInline()}});
 $('#imp').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)importJSON(f);e.target.value=''});
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view)go(h)});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((VIEWS.includes(h)||STAFF_VIEWS.includes(h))&&h!==S.view)go(h)});
 window.addEventListener('online',()=>{S.online=true;render()});
 window.addEventListener('offline',()=>{S.online=false;render()});
 document.addEventListener('submit',async e=>{
@@ -823,7 +929,7 @@ document.addEventListener('submit',async e=>{
 
 /* ================= boot ================= */
 async function boot(){
-  const h=location.hash.slice(1);if(VIEWS.includes(h))S.view=h;
+  const h=location.hash.slice(1);if(VIEWS.includes(h)||STAFF_VIEWS.includes(h))S.view=h;
   render();
   if(window.claude&&typeof window.claude.use==='function'){
     let d=null;try{d=await Promise.race([window.claude.use('db'),sleep(10000).then(()=>null)])}catch(e){d=null}

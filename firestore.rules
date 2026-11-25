@@ -2,7 +2,7 @@ rules_version = '2';
 // Ayla hisob-kitob.
 // Admin (direktor): hamma narsani ko'radi va o'zgartiradi, xodimlarni tasdiqlaydi.
 // Xodim: faqat modellar katalogi (rasm, nom, xom ashyo miqdori), xom ashyo nomlari, ishchilar ro'yxati
-// va ishlab chiqarishni ko'radi; ishlab chiqarish va bajarilgan ishni (narxsiz) kiritadi.
+// va ishlab chiqarishni, kunlik zakazlarni ko'radi; ishlab chiqarish va bajarilgan ishni (narxsiz) kiritadi.
 // Pul bilan bog'liq hech narsa (narx, tannarx, sotuv, qarz, maosh, xarajat) xodimga ochilmaydi.
 // Birinchi ro'yxatdan o'tgan odam egasi (admin) bo'ladi.
 service cloud.firestore {
@@ -12,7 +12,7 @@ service cloud.firestore {
     function member() { return signed() && exists(mpath()); }
     function admin() { return member() && get(mpath()).data.role == 'admin'; }
     function ownerUid() { return get(/databases/$(database)/documents/config/owner).data.uid; }
-    function biz(col) { return col in ['mat','mv','mdl','cat','prd','wkr','job','pay','cst','sale','cpay','exp']; }
+    function biz(col) { return col in ['mat','mv','mdl','cat','ord','prd','wkr','job','pay','cst','sale','cpay','exp']; }
     function mine() { return request.resource.data.by == request.auth.uid; }
     function wasMine() { return resource.data.by == request.auth.uid; }
 
@@ -45,6 +45,12 @@ service cloud.firestore {
     match /mat/{id} { allow read: if member(); }
     match /wkr/{id} { allow read: if member(); }
     match /cat/{id} { allow read: if member(); }
+    // Kunlik zakaz: hamma xodim ko'radi, faqat holatini (yangi / jarayonda / tayyor) o'zgartira oladi; qo'shish va tahrirlash faqat admin
+    match /ord/{id} {
+      allow read: if member();
+      allow update: if member()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','stBy','stTs']);
+    }
     match /prd/{id} {
       allow read: if member();
       allow create: if member() && mine();
