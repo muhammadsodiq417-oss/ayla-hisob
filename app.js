@@ -148,12 +148,13 @@ async function fbBoot(cfg){
 function fbStopData(){dataUnsubs.forEach(u=>{try{u()}catch(e){}});dataUnsubs=[];if(reqUnsub){reqUnsub();reqUnsub=null}COLS.forEach(c=>D[c]=[]);D.members=[];D.requests=[];S.loaded=false}
 function fbAuthChanged(u){
   fbStopData();if(meUnsub){meUnsub();meUnsub=null}
-  me=u?u.uid:null;S.user=u;S.role=null;S.admin=false;S.reqExists=undefined;
+  me=u?u.uid:null;S.user=u;S.role=null;S.admin=false;S.reqExists=undefined;S.fbRetry=0;
   if(!u){S.auth='out';closeSheet();render();return}
   S.auth='check';S.authMode='in';render();
   const {F:Fs,fs}=FBX;
   Fs.getDoc(Fs.doc(fs,'config','owner')).then(s=>{S.ownerUid=s.exists()?s.data().uid:null}).catch(()=>{});
-  meUnsub=Fs.onSnapshot(Fs.doc(fs,'members',u.uid),s=>{
+  meUnsub=Fs.onSnapshot(Fs.doc(fs,'members',u.uid),{includeMetadataChanges:true},s=>{
+    if(s.metadata&&s.metadata.hasPendingWrites)return;
     if(s.exists()){const d=s.data(),was=S.auth;S.role=d.role||'xodim';S.admin=S.role==='admin';S.myName=d.name||u.displayName||'';S.auth='in';if(was!=='in'||S.subAdmin!==S.admin){fbStopData();fbSubscribe()}fbReqSub();sched()}
     else{if(S.auth==='in')fbStopData();S.role=null;S.admin=false;S.auth='pending';fbCheckRequest();sched()}
   },e=>{S.auth='pending';S.authErr=errText(e);sched()});
@@ -164,7 +165,9 @@ function fbSubscribe(){
   cols.forEach(c=>dataUnsubs.push(Fs.onSnapshot(!adm&&c==='job'?Fs.query(Fs.collection(fs,'job'),Fs.where('by','==',me)):Fs.collection(fs,c),s=>{
     D[c]=s.docs.map(d=>Object.assign({},d.data(),{id:d.id}));got.add(c);
     if(got.size===cols.length&&!S.loaded){S.loaded=true;S.stale=false;clearTimeout(tm)}sched();
-  },e=>{got.add(c);if(got.size===cols.length)S.loaded=true;S.stale=true;sched()})));
+  },e=>{got.add(c);if(got.size===cols.length)S.loaded=true;
+    if(e&&e.code==='permission-denied'&&!S.fbRetry){S.fbRetry=1;setTimeout(()=>{if(S.auth==='in'){fbStopData();fbSubscribe();fbReqSub()}},1500);return}
+    S.stale=true;sched()})));
 }
 function fbReqSub(){
   const {F:Fs,fs}=FBX;
@@ -406,7 +409,7 @@ function fh(f){
   const id='f_'+f.id,v=f.value??'';
   if(f.type==='html')return f.html;
   if(f.type==='img')return `<div class="fl"><span>${esc(f.label)}</span><div class="imgbox"><div class="mimg" id="f_imgp">${v&&IMGRE.test(v)?`<img src="${esc(v)}" alt="">`:noImg}</div><div class="acts"><label class="btn sm">Rasm tanlash<input type="file" accept="image/*" id="f_imgf" hidden></label><button type="button" class="btn sm" data-act="imgdel">Olib tashlash</button></div></div><input type="hidden" name="${f.id}" id="${id}" value="${esc(v)}"><small class="hint">Telefon kamerasi yoki galereyadan. Rasm avtomatik kichraytiriladi.</small></div>`;
-  if(f.type==='rows')return `<div class="fl"><span>${esc(f.label)}</span><div class="rows" data-rows="${f.id}">${(f.value||[]).map(r=>rowIn(f,r)).join('')}</div><button type="button" class="btn sm" data-act="addrow" data-r="${f.id}">${I.plus}${esc(f.add)}</button>${f.hint?`<small class="hint">${esc(f.hint)}</small>`:''}</div>`;
+  if(f.type==='rows')return `<div class="fl"><span>${esc(f.label)}</span><div class="rows" data-rows="${f.id}">${(f.value||[]).map(r=>rowIn(f,r)).join('')}</div><div class="acts" style="margin:0"><button type="button" class="btn sm" data-act="addrow" data-r="${f.id}">${I.plus}${esc(f.add)}</button>${f.newMat?`<button type="button" class="btn sm" data-act="newmat">${I.plus}Yangi xom ashyo</button>`:''}</div>${f.newMat?`<div class="newmat" id="nmbox" hidden><input id="nm_name" placeholder="Nomi, masalan: Natural teri" autocomplete="off" aria-label="Yangi xom ashyo nomi"><select id="nm_unit" aria-label="O'lchov birligi">${opt(UNITS.map(u=>[u,u]),'m²','')}</select><button type="button" class="btn sm pri" data-act="newmat-save">Qo'shish</button></div>`:''}${f.hint?`<small class="hint">${esc(f.hint)}</small>`:''}</div>`;
   let inp;
   if(f.type==='sel')inp=`<select id="${id}" name="${f.id}">${opt(f.opts,v,f.noPh?'':'Tanlang…')}</select>`;
   else if(f.type==='area')inp=`<textarea id="${id}" name="${f.id}" placeholder="${esc(f.ph||'')}">${esc(v)}</textarea>`;
@@ -458,14 +461,13 @@ function mvForm(kind,matId,back){
   }});
 }
 function mdlForm(id,back){
-  if(!D.mat.length){toast("Avval omborga xom ashyo qo'shing");return matForm()}
   const m=id?get('mdl',id):null,used=id&&refs.mdl(id);
   form(m?'Modelni tahrirlash':'Yangi model',[
     {id:'img',label:'Rasm',type:'img',value:id?imgOf(id):''},
     {id:'name',label:'Model nomi',type:'text',value:m?.name,req:1,ph:'Masalan: Klassik tufli (erkak)'},
     {id:'code',label:'Artikul',type:'text',value:m?.code,ph:'K-101'},
     {id:'price',label:"Sotuv narxi, 1 juft (so'm)",type:'money',value:m?.price,req:1},
-    {id:'bom',label:'1 juftga ketadigan xom ashyo',type:'rows',add:'Xom ashyo',value:m?.bom||[{}],cols:[{k:'mat',t:'sel',opts:matO,ph:'Xom ashyo'},{k:'qty',t:'num',ph:'Miqdor'}],keep:r=>r.mat&&r.qty>0,hint:'Narx ombordagi o‘rtacha kirim narxidan olinadi'},
+    {id:'bom',label:'1 juftga ketadigan xom ashyo',type:'rows',add:'Qator',newMat:1,value:m?.bom||(D.mat.length?[{}]:[]),cols:[{k:'mat',t:'sel',opts:matO,ph:'Xom ashyo'},{k:'qty',t:'num',ph:'Miqdor'}],keep:r=>r.mat&&r.qty>0,hint:D.mat.length?'Narx ombordagi o‘rtacha kirim narxidan olinadi':'Xom ashyoni shu yerning o‘zida qo‘shing yoki keyin to‘ldiring. Narxi omborga kirim kiritilgach hisoblanadi'},
     {id:'ops',label:'Ish haqi, 1 juft uchun (donabay)',type:'rows',add:'Operatsiya',value:m?.ops||OPS0.map(n=>({name:n})),cols:[{k:'name',t:'text',ph:'Operatsiya'},{k:'rate',t:'money',ph:"so'm"}],keep:r=>r.name},
     {id:'extra',label:"Boshqa xarajat, 1 juftga (so'm)",type:'money',value:m?.extra,hint:'Ijara, svet ulushi va h.k. Faqat narx hisobida; oylik foydada haqiqiy xarajatlar olinadi'}
   ],async v=>{const mid=id||uid(),md=Object.assign({},m||stamp({}),{name:v.name,code:v.code,price:v.price,bom:v.bom,ops:v.ops,extra:v.extra});await many([['mdl',md,mid],['cat',catDoc(md,v.img),mid]])},Object.assign({back,live:(v,box)=>{
@@ -589,6 +591,16 @@ function expForm(){
     {id:'date',label:'Sana',type:'date',value:td()},
     {id:'note',label:'Izoh',type:'text'}
   ],async v=>{await put('exp',stamp({cat:v.cat,amount:v.amount,date:v.date||td(),note:v.note}))});
+}
+
+async function newMatInline(){
+  const nmI=$('#nm_name'),n=nmI.value.trim(),unit=$('#nm_unit').value;if(!n){toast('Xom ashyo nomini yozing');nmI.focus();return}
+  const mid=uid();await put('mat',stamp({name:n,unit,min:0}),mid);
+  const label=n+' ('+unit+')',box=$('[data-rows="bom"]');
+  box.querySelectorAll('select[data-k=mat]').forEach(sl=>{if(!sl.querySelector(`option[value="${CSS.escape(mid)}"]`))sl.insertAdjacentHTML('beforeend',`<option value="${esc(mid)}">${esc(label)}</option>`)});
+  let rw=[...box.querySelectorAll('.rw')].find(x=>!x.querySelector('[data-k=mat]').value);
+  if(!rw){box.insertAdjacentHTML('beforeend',rowIn(F.fields.find(x=>x.id==='bom')));rw=box.lastElementChild;const sl=rw.querySelector('[data-k=mat]');if(!sl.querySelector(`option[value="${CSS.escape(mid)}"]`))sl.insertAdjacentHTML('beforeend',`<option value="${esc(mid)}">${esc(label)}</option>`)}
+  rw.querySelector('[data-k=mat]').value=mid;nmI.value='';$('#nmbox').hidden=true;rw.querySelector('[data-k=qty]').focus();liveRun();toast(n+' qo‘shildi');
 }
 
 /* ================= detail sheets ================= */
@@ -754,6 +766,8 @@ document.addEventListener('click',async e=>{
     case 'sale-new':saleForm(id,back);break;
     case 'cpay-new':cpayForm(id,back);break;
     case 'exp-new':expForm();break;
+    case 'newmat':{const bx=$('#nmbox');bx.hidden=!bx.hidden;if(!bx.hidden)$('#nm_name').focus();break}
+    case 'newmat-save':await newMatInline();break;
     case 'addrow':{const f=F&&F.fields.find(x=>x.id===b.dataset.r);if(f){$(`[data-rows="${f.id}"]`).insertAdjacentHTML('beforeend',rowIn(f));liveRun()}break}
     case 'delrow':b.closest('.rw').remove();liveRun();break;
     case 'txdel':case 'fdel':{
@@ -780,7 +794,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t.id==='cq'){S.q=t.val
 document.addEventListener('change',async e=>{const t=e.target;
   if(t.id==='f_imgf'){const f=t.files&&t.files[0];t.value='';if(!f)return;try{const d=await shrink(f);$('#f_img').value=d;$('#f_imgp').innerHTML=`<img src="${esc(d)}" alt="">`}catch(err){toast("Rasmni o'qib bo'lmadi. Boshqa rasm tanlang.")}return}if(t.id==='csort'){S.csort=t.value;const l=$('#clist');if(l)l.innerHTML=clientRows();return}if(t.closest&&t.closest('#frm'))liveRun()});
 document.addEventListener('focusout',e=>{const t=e.target;if(t.type==='tel'&&t.value.trim()){t.value=fmtPhone(t.value);liveRun();return}if(t.classList&&t.classList.contains('money')&&t.value.trim()){const n=num(t.value);t.value=n?grp(n):''}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();if(e.key==='Enter'&&e.target.id==='nm_name'){e.preventDefault();newMatInline()}});
 $('#imp').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)importJSON(f);e.target.value=''});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view)go(h)});
 window.addEventListener('online',()=>{S.online=true;render()});
